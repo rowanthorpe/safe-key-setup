@@ -9,6 +9,32 @@
 # the main keyring (so it can be kept separate from the public master and subkeys, for use only
 # when necessary).
 ####
+# © Copyright 2013 Rowan Thorpe
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU Affero General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU Affero General Public License for more details.
+#
+#  You should have received a copy of the GNU Affero  General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+####
+# Reference links (TODO: may need to copy some license-headers from one or two of these if they
+#                  have actual code similar to mine...?):
+#
+#  http://blog.sanctum.geek.nz/linux-crypto-gnupg-keys/
+#  http://security.stackexchange.com/questions/31594/what-is-a-good-general-purpose-gnupg-key-setup
+#  http://security.stackexchange.com/questions/29851/how-many-gpg-keys-should-i-make
+#  http://keyring.debian.org/creating-key.html
+#  https://wiki.debian.org/subkeys
+#  http://www.openpgp-schulungen.de/scripte/keygeneration/#download
+#  https://we.riseup.net/riseuplabs+paow/openpgp-best-practices
+
 
 # NB:
 #
@@ -65,26 +91,33 @@
 #
 #       [when I have time]
 #
-# * Add "set -e" to the top of the script and check that every command is failproofed
+# * Add copyright headers from one or two references if relevant (can't remember at the moment).
+
+# * Add "set -e" to the top of the script and check that every command is failproofed.
 #
 #       [to decide if wise first]
 #
 # * Perhaps automate updating trustdb (configurably), after all other actions are done.
 
-# Reference links:
-#
-# http://blog.sanctum.geek.nz/linux-crypto-gnupg-keys/
-# http://security.stackexchange.com/questions/31594/what-is-a-good-general-purpose-gnupg-key-setup
-# http://security.stackexchange.com/questions/29851/how-many-gpg-keys-should-i-make
-# http://keyring.debian.org/creating-key.html
-# https://wiki.debian.org/subkeys
-# http://www.openpgp-schulungen.de/scripte/keygeneration/#download
-# https://we.riseup.net/riseuplabs+paow/openpgp-best-practices
-
-
+# Getopts
+thisscript="$(readlink -e "$0")"
+while $# -gt 0; do
+	case "$1" in
+	--source)
+		cat "$thisscript"
+		exit 0;;
+	--)
+		shift
+		break;;
+	-*)
+		printf "Unknown commandline flag. Aborting.\n" >&2
+        exit(1);;
+	*)
+		break;;
+	esac
+done
 
 # The next four lines are a perverse hack to lock this whole script into non-swappable memory
-thisscript="$(readlink -e "$0")"
 printf -- '%s\n' "$thisscript" >/dev/shm/temp-memlock-$$.cfg
 sudo /usr/sbin/memlockd -c /dev/shm/temp-memlock-$$.cfg -u memlockd -f -d >/dev/null 2>&1 &
 mlockpid=$!

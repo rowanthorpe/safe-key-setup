@@ -13,3 +13,6 @@ existing keyring and serves it up to them in a white wine sauce.
 If you are still reading (perhaps you are a friend who I pointed here to help
 me improve it), then please read the source for clues, and if you do test-run
 it please do so on a throwaway keyring, etc...
+
+For bug reports or similar, please contact:
+ rowan@rowanthorpe.com
