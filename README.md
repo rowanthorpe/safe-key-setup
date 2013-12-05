@@ -10,6 +10,6 @@ Therefore, this README is completely unhelpful for now, to discourage anyone
 trying to use it in the real world, and complaining when it shreds their
 existing keyring and serves it up to them in a white wine sauce.
 
-If you are still reading (perhaps you are a friend I pointed you here to help
+If you are still reading (perhaps you are a friend who I pointed here to help
 me improve it), then please read the source for clues, and if you do test-run
 it please do so on a throwaway keyring, etc...
