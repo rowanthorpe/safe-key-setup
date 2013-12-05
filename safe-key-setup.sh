@@ -111,7 +111,7 @@ while $# -gt 0; do
 		break;;
 	-*)
 		printf "Unknown commandline flag. Aborting.\n" >&2
-        exit(1);;
+		exit(1);;
 	*)
 		break;;
 	esac
