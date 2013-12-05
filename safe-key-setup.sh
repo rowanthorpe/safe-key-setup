@@ -63,6 +63,10 @@
 
 # TODO:
 #
+#       [when I have time]
+#
+# * Add "set -e" to the top of the script and check that every command is failproofed
+#
 #       [to decide if wise first]
 #
 # * Perhaps automate updating trustdb (configurably), after all other actions are done.
