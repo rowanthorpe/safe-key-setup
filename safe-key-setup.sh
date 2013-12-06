@@ -91,8 +91,9 @@
 #
 #       [when I have time]
 #
-# * Add copyright headers from one or two references if relevant (can't remember at the moment).
-
+# * Add copyright headers from one or two references in the list above, if relevant (can't remember
+#   at the moment).
+#
 # * Add "set -e" to the top of the script and check that every command is failproofed.
 #
 #       [to decide if wise first]
