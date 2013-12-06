@@ -118,11 +118,12 @@ while $# -gt 0; do
 	esac
 done
 
-# The next four lines are a perverse hack to lock this whole script into non-swappable memory
+## This is a perverse hack to lock the whole script into non-swappable memory
 printf -- '%s\n' "$thisscript" >/dev/shm/temp-memlock-$$.cfg
 sudo /usr/sbin/memlockd -c /dev/shm/temp-memlock-$$.cfg -u memlockd -f -d >/dev/null 2>&1 &
 mlockpid=$!
-# don't create anything readable by other users (except root, of course)
+
+## Don't create anything readable by other users (except root...)
 umask 077
 
 ## Preset these here. They can be overriden by env vars...
