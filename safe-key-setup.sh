@@ -215,7 +215,8 @@ while test -z "$expiredate"; do
 done
 imagefile="##################"
 while test -n "$imagefile" && ! test -s "$imagefile"; do
-	printf 'Enter (absolute path) filename for a small image file to include in the key%s(optional, file must exist and be non-empty):%s' "$eol" "$eol" >&2
+	printf 'Enter (absolute path) filename for a small image file to include in the key%s(optional, file must exist \
+				and be non-empty):%s' "$eol" "$eol" >&2
 	read imagefile
 done
 printf 'Enter a space-separated list of the extra email addresses you wish to create uids for (optional):%s' "$eol" >&2
@@ -298,7 +299,8 @@ if test -n "$oldkeys"; then
 	$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import
 	# Sign it on main keyring, with requested IDs
 	for signame in $oldkeys; do
-		printf 'tnrsign%s2%s10%s%ssave%s' "$eol" "$eol" "$eol" "$eol" "$eol" | $GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --local-user "$signame" --edit-key $keyid
+		printf 'tnrsign%s2%s10%s%ssave%s' "$eol" "$eol" "$eol" "$eol" "$eol" | \
+			$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --local-user "$signame" --edit-key $keyid
 	done
 	# Pipe-export master public key | import to temp keyring (don't save as file)
 	$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --import
@@ -306,7 +308,8 @@ if test -n "$oldkeys"; then
 	$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --delete-key $keyid
 fi
 ## Set password
-$HIDDEN_PRINTF 'passwd%s%s%ssave%s' "$eol" "$pass" "$eol" "$eol" | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --edit-key $keyid
+$HIDDEN_PRINTF 'passwd%s%s%ssave%s' "$eol" "$pass" "$eol" "$eol" | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS \
+																		--edit-key $keyid
 ## Export revocation cert to file
 $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output "$master_revoke" --gen-revoke $keyid
 ## Export key
