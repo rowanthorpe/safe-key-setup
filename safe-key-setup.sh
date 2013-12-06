@@ -61,7 +61,8 @@
 #   though...).
 #
 # * Set the password from the moment the key is created (so there is no window of vulnerability)
-#   and pipe the password in for all steps using $HIDDEN_PRINTF.
+#   and pipe the password in for all steps using $HIDDEN_PRINTF. "gpgwrap" manpage has some
+#   examples that might be a good resource (not needing to actually use gpgwrap though).
 #
 # * Redirect this script's STDIN to /dev/null during keys' creation so any entropy assistance
 #   (typing) won't be inserted later as gibberish when trying to save the key.
@@ -294,13 +295,13 @@ sub_secret="${SAFEKEY_WORKDIR}/secret-subkeys-${timenow}.asc"
 ## If any keys were specified for signing the new key with...
 if test -n "$oldkeys"; then
 	# Pipe-export master public key | import to main keyring (don't save as file)
-	$GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_MAINKEYRIGNSETTINGS --import
+	$GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_MAINKEYRINGSETTINGS --import
 	# Sign it on main keyring, with requested IDs
 	for signame in $oldkeys; do
 		printf 'tnrsign%s2%s10%s%ssave%s' "$eol" "$eol" "$eol" "$eol" "$eol" | $GPGINVOKE $SAFEKEY_MAINKEYRINGSETTINGS --local-user "$signame" --edit-key $keyid
 	done
 	# Pipe-export master public key | import to temp keyring (don't save as file)
-	$GPGINVOKE $SAFEKEY_MAINKEYRINGSETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_TEMPKEYRIGNSETTINGS --import
+	$GPGINVOKE $SAFEKEY_MAINKEYRINGSETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --import
 	# Delete master public key from main keyring
 	$GPGINVOKE $SAFEKEY_MAINKEYRINGSETTINGS --delete-key $keyid
 fi
