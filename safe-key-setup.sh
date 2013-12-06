@@ -126,7 +126,7 @@ mlockpid=$!
 ## Don't create anything readable by other users (except root...)
 umask 077
 
-## Preset these here. They can be overriden by env vars...
+## Presets. Overridable by env vars...
 if test -z "$GPGINVOKE"; then
 	if command -v gpg2 >/dev/null 2>&1; then
 		GPGINVOKE='LC_ALL= LC_MESSAGES=C gpg2'
