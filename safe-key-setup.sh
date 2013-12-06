@@ -216,7 +216,7 @@ done
 imagefile="##################"
 while test -n "$imagefile" && ! test -s "$imagefile"; do
 	printf 'Enter (absolute path) filename for a small image file to include in the key%s(optional, file must exist \
-				and be non-empty):%s' "$eol" "$eol" >&2
+and be non-empty):%s' "$eol" "$eol" >&2
 	read imagefile
 done
 printf 'Enter a space-separated list of the extra email addresses you wish to create uids for (optional):%s' "$eol" >&2
@@ -246,7 +246,7 @@ tempgpgdir="$(mktemp --tmpdir="$SAFEKEY_WORKDIR" --directory)" || {
 }
 trap 'rm -Rf "$tempgpgdir" 2>/dev/null' EXIT
 SAFEKEY_TEMPKEYRING_SETTINGS="${SAFEKEY_TEMPKEYRING_SETTINGS:-$SAFEKEY_KEYRING_SETTINGS --homedir $tempgpgdir \
---no-default-keyring --keyring ${tempgpgdir}/pubring.gpg --secret-keyring ${tempgpgdir}/secring.gpg}"
+	--no-default-keyring --keyring ${tempgpgdir}/pubring.gpg --secret-keyring ${tempgpgdir}/secring.gpg}"
 
 ## Generate key
 cat <<EOM | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --gen-key >&2
@@ -309,7 +309,7 @@ if test -n "$oldkeys"; then
 fi
 ## Set password
 $HIDDEN_PRINTF 'passwd%s%s%ssave%s' "$eol" "$pass" "$eol" "$eol" | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS \
-																		--edit-key $keyid
+	--edit-key $keyid
 ## Export revocation cert to file
 $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output "$master_revoke" --gen-revoke $keyid
 ## Export key
