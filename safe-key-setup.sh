@@ -46,7 +46,7 @@
 #   (temporarily disable?) avoid computer hibernation storing passwords to disk. Thanks.
 #
 # * Deliberately using same Full Name field and no Comment fields for all UIDs. When making a strong master
-#   key there should be no ambiguity about the name, and comments are almost alway used wrongly (which
+#   key there should be no ambiguity about the name, and comments are almost always used wrongly (which
 #   confuses things later) and are almost never actually needed (the few who do should edit them manually).
 #
 # * Deliberately not offering to upload it to a keyserver at the end - I presently think that is
@@ -63,8 +63,8 @@
 # * Set the password from the moment the key is created (so there is no window of vulnerability)
 #   and pipe the password in for all steps using $HIDDEN_PRINTF.
 #
-# * Redirect this script's STDIN to /dev/null so any entropy assistance (typing) during keys'
-#   creation won't be inserted later as gibberish when trying to save the key.
+# * Redirect this script's STDIN to /dev/null during keys' creation so any entropy assistance
+#   (typing) won't be inserted later as gibberish when trying to save the key.
 #
 # * Use and respect gpg lock files (e.g. secring.gpg.lock, etc), for obvious reasons.
 #
