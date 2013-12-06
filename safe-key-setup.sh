@@ -147,8 +147,8 @@ if test -z "$SAFEKEY_WORKDIR"; then
 		SAFEKEY_WORKDIR="$HOME"
 	fi
 fi
-SAFEKEY_KEYRINGSETTINGS="${SAFEKEY_KEYRINGSETTINGS:---options $GNUPGCONF --armor --expert --batch --command-fd 0}"
-SAFEKEY_MAINKEYRINGSETTINGS="${SAFEKEY_MAINKEYRINGSETTINGS:-$SAFEKEY_KEYRINGSETTINGS --homedir $GNUPGHOME}"
+SAFEKEY_KEYRING_SETTINGS="${SAFEKEY_KEYRING_SETTINGS:---options $GNUPGCONF --armor --expert --batch --command-fd 0}"
+SAFEKEY_MAINKEYRING_SETTINGS="${SAFEKEY_MAINKEYRING_SETTINGS:-$SAFEKEY_KEYRING_SETTINGS --homedir $GNUPGHOME}"
 HIDDEN_PRINTF="${HIDDEN_PRINTF:-$(PATH= command -v printf)}" 2>/dev/null
 eol="
 "
@@ -244,11 +244,11 @@ tempgpgdir="$(mktemp --tmpdir="$SAFEKEY_WORKDIR" --directory)" || {
 	exit 1
 }
 trap 'rm -Rf "$tempgpgdir" 2>/dev/null' EXIT
-SAFEKEY_TEMPKEYRINGSETTINGS="${SAFEKEY_TEMPKEYRINGSETTINGS:-$SAFEKEY_KEYRINGSETTINGS --homedir $tempgpgdir \
+SAFEKEY_TEMPKEYRING_SETTINGS="${SAFEKEY_TEMPKEYRING_SETTINGS:-$SAFEKEY_KEYRING_SETTINGS --homedir $tempgpgdir \
 --no-default-keyring --keyring ${tempgpgdir}/pubring.gpg --secret-keyring ${tempgpgdir}/secring.gpg}"
 
 ## Generate key
-cat <<EOM | $GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --gen-key >&2
+cat <<EOM | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --gen-key >&2
 %echo Starting generation of key.
 Key-Type: RSA
 Key-Length: 4096
@@ -267,7 +267,7 @@ Expire-Date: $expiredate
 EOM
 
 ## Get master key ID
-keyid="$($GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --list-keys --with-colons | \
+keyid="$($GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --list-keys --with-colons | \
 sed -ne '/^pub:/ { s/^pub:[^:]*:[^:]*:[^:]*:\([^:]\+\):.*$/\1/; p }')"
 
 ## Generate extra UIDs, signing subkeys, import image, etc
@@ -284,7 +284,7 @@ sed -ne '/^pub:/ { s/^pub:[^:]*:[^:]*:[^:]*:\([^:]\+\):.*$/\1/; p }')"
 	fi
 	printf 'setpref SHA512 SHA384 SHA256 SHA224 AES256 AES192 AES CAST5 ZLIB BZIP2 ZIP Uncompressed%s' "$eol"
 	printf 'save%s' "$eol"
-} | $GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --edit-key $keyid
+} | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --edit-key $keyid
 
 timenow=`date +%Y%m%d%H%M%S`
 master_revoke="${HOME}/master-key-revoke-${timenow}.asc"
@@ -295,28 +295,28 @@ sub_secret="${SAFEKEY_WORKDIR}/secret-subkeys-${timenow}.asc"
 ## If any keys were specified for signing the new key with...
 if test -n "$oldkeys"; then
 	# Pipe-export master public key | import to main keyring (don't save as file)
-	$GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_MAINKEYRINGSETTINGS --import
+	$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import
 	# Sign it on main keyring, with requested IDs
 	for signame in $oldkeys; do
-		printf 'tnrsign%s2%s10%s%ssave%s' "$eol" "$eol" "$eol" "$eol" "$eol" | $GPGINVOKE $SAFEKEY_MAINKEYRINGSETTINGS --local-user "$signame" --edit-key $keyid
+		printf 'tnrsign%s2%s10%s%ssave%s' "$eol" "$eol" "$eol" "$eol" "$eol" | $GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --local-user "$signame" --edit-key $keyid
 	done
 	# Pipe-export master public key | import to temp keyring (don't save as file)
-	$GPGINVOKE $SAFEKEY_MAINKEYRINGSETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --import
+	$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --import
 	# Delete master public key from main keyring
-	$GPGINVOKE $SAFEKEY_MAINKEYRINGSETTINGS --delete-key $keyid
+	$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --delete-key $keyid
 fi
 ## Set password
-$HIDDEN_PRINTF 'passwd%s%s%ssave%s' "$eol" "$pass" "$eol" "$eol" | $GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --edit-key $keyid
+$HIDDEN_PRINTF 'passwd%s%s%ssave%s' "$eol" "$pass" "$eol" "$eol" | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --edit-key $keyid
 ## Export revocation cert to file
-$GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --output "$master_revoke" --gen-revoke $keyid
+$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output "$master_revoke" --gen-revoke $keyid
 ## Export key
-$GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --output "$master_secret" --export-secret-key $keyid
+$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output "$master_secret" --export-secret-key $keyid
 ## Export master public key to file
-$GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --output "$master_public" --export $keyid
+$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output "$master_public" --export $keyid
 ## Export subkeys
-$GPGINVOKE $SAFEKEY_TEMPKEYRINGSETTINGS --output "$sub_secret" --export-secret-subkeys
+$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output "$sub_secret" --export-secret-subkeys
 ## Reimport master public and secret subkeys to main keyring
-$GPGINVOKE $SAFEKEY_MAINKEYRINGSETTINGS --import "$master_public" "$sub_secret"
+$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import "$master_public" "$sub_secret"
 rm -f "$master_public" "$sub_secret"
 
 printf "Your master public key and secret subkeys are installed in your keyring, and the master secret key and \
