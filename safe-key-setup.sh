@@ -168,8 +168,8 @@ if printf 'Y' | read -n 1 temp >/dev/null 2>/dev/null; then
 else
 	read_n1_flag=""
 fi
-if ! printf 'Hmmm...\n' | read -s temp >/dev/null 2>/dev/null; then
-	errmsg="${errmsg}+ Your shell's \"read\" doesn't seem to cope with -s flag (to not display
+if ! { stty -echo && stty echo; } >/dev/null 2>&1; then
+	errmsg="${errmsg}+ stty doesn't seem to work as needed (to not display
 password). If you continue be *sure* no-one is watching over your shoulder,
 and even then it is still not advised!$eol"
 fi
@@ -233,10 +233,10 @@ passcheck="##################"
 while ! test "$pass" = "$passcheck"; do
 	while test -z "$pass"; do
 		printf 'Enter a passphrase (not echoed):%s' "$eol" >&2
-		read -s pass
+		stty -echo >/dev/null 2>&1; read pass; stty echo >/dev/null 2>&1
 	done
 	printf 'Please re-enter the passphrase (not echoed):%s' "$eol" >&2
-	read -s passcheck
+	stty -echo >/dev/null 2>&1; read passcheck; stty echo >/dev/null 2>&1
 done
 
 ## Create temp stuff
