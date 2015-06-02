@@ -103,7 +103,7 @@
 
 # Getopts
 thisscript="$(readlink -e "$0")"
-while $# -gt 0; do
+while test $# -gt 0; do
 	case "$1" in
 	--source)
 		cat "$thisscript"
@@ -145,7 +145,7 @@ GNUPGCONF="${GNUPGCONF:-${GNUPGHOME}/gpg.conf}"
 GNUPGPUBKEYRING="${GNUPGPUBKEYRING:-${GNUPGHOME}/pubring.gpg}"
 GNUPGSECKEYRING="${GNUPGSECKEYRING:-${GNUPGHOME}/secring.gpg}"
 if test -z "$SAFEKEY_WORKDIR"; then
-	if test -d /dev/shm && -r /dev/shm && -x /dev/shm && -w /dev/shm; then
+	if test -d /dev/shm && test -r /dev/shm && test -x /dev/shm && test -w /dev/shm; then
 		SAFEKEY_WORKDIR=/dev/shm
 	else
 		SAFEKEY_WORKDIR="$HOME"
