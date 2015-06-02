@@ -219,8 +219,8 @@ while test -z "$expiredate"; do
 done
 imagefile="##################"
 while test -n "$imagefile" && ! test -s "$imagefile"; do
-	printf 'Enter (absolute path) filename for a small image file to include in the key%s(optional, file must exist \
-and be non-empty):%s' "$eol" "$eol" >&2
+	printf 'Enter (absolute path) filename for a small image file to include in the key%s(optional, file must exist '\
+'and be non-empty):%s' "$eol" "$eol" >&2
 	read imagefile
 done
 printf 'Enter a space-separated list of the extra email addresses you wish to create uids for (optional):%s' "$eol" >&2
@@ -253,7 +253,7 @@ SAFEKEY_TEMPKEYRING_SETTINGS="${SAFEKEY_TEMPKEYRING_SETTINGS:-$SAFEKEY_KEYRING_S
 	--no-default-keyring --keyring ${tempgpgdir}/pubring.gpg --secret-keyring ${tempgpgdir}/secring.gpg}"
 
 ## Generate key
-cat <<EOM | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --gen-key >&2
+eval "cat <<EOM | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --gen-key >&2
 %echo Starting generation of key.
 Key-Type: RSA
 Key-Length: 4096
@@ -261,19 +261,20 @@ Key-Usage: sign auth
 Subkey-Type: RSA
 Subkey-Length: 4096
 Subkey-Usage: encrypt
-Name-Real: $fullname
-Name-Email: $primaryemailaddress
-Expire-Date: $expiredate
-%pubring ${tempgpgdir}/pubring.gpg
-%secring ${tempgpgdir}/secring.gpg
+Name-Real: \$fullname
+Name-Email: \$primaryemailaddress
+Expire-Date: \$expiredate
+%pubring \${tempgpgdir}/pubring.gpg
+%secring \${tempgpgdir}/secring.gpg
 %no-protection
 %commit
 %echo Finished generating key.
 EOM
+"
 
 ## Get master key ID
-keyid="$($GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --list-keys --with-colons | \
-sed -ne '/^pub:/ { s/^pub:[^:]*:[^:]*:[^:]*:\([^:]\+\):.*$/\1/; p }')"
+eval "keyid=\"\$($GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --list-keys --with-colons | \
+sed -ne '/^pub:/ { s/^pub:[^:]*:[^:]*:[^:]*:\([^:]\+\):.*$/\1/; p }')\""
 
 ## Generate extra UIDs, signing subkeys, import image, etc
 {
@@ -284,12 +285,12 @@ sed -ne '/^pub:/ { s/^pub:[^:]*:[^:]*:[^:]*:\([^:]\+\):.*$/\1/; p }')"
 	for num in `seq $numsignkeys`; do
 		printf 'addkey%s8%se%sq%s4096%s1y%s' "$eol" "$eol" "$eol" "$eol" "$eol" "$eol"
 	done
-	if test -n "$imagefile"
+	if test -n "$imagefile"; then
 		printf 'addphoto%s%s%s' "$eol" "$imagefile" "$eol"
 	fi
 	printf 'setpref SHA512 SHA384 SHA256 SHA224 AES256 AES192 AES CAST5 ZLIB BZIP2 ZIP Uncompressed%s' "$eol"
 	printf 'save%s' "$eol"
-} | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --edit-key $keyid
+} | eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --edit-key \$keyid"
 
 timenow=`date +%Y%m%d%H%M%S`
 master_revoke="${HOME}/master-key-revoke-${timenow}.asc"
@@ -300,28 +301,28 @@ sub_secret="${SAFEKEY_WORKDIR}/secret-subkeys-${timenow}.asc"
 ## If any keys were specified for signing the new key with...
 if test -n "$oldkeys"; then
 	# Pipe-export master public key | import to main keyring (don't save as file)
-	$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import
+	eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --export \$keyid | $GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import"
 	# Sign it on main keyring, with requested IDs
 	for signame in $oldkeys; do
 		printf 'tnrsign%s2%s10%s%ssave%s' "$eol" "$eol" "$eol" "$eol" "$eol" | \
-			$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --local-user "$signame" --edit-key $keyid
+			eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --local-user \"\$signame\" --edit-key \$keyid"
 	done
 	# Pipe-export master public key | import to temp keyring (don't save as file)
-	$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --export $keyid | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --import
+	eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --export \$keyid | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --import"
 	# Delete master public key from main keyring
-	$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --delete-key $keyid
+	eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --delete-key \$keyid"
 fi
 ## Set password
-$HIDDEN_PRINTF 'passwd%s%s%ssave%s' "$eol" "$pass" "$eol" "$eol" | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS \
-	--edit-key $keyid
+$HIDDEN_PRINTF 'passwd%s%s%ssave%s' "$eol" "$pass" "$eol" "$eol" | eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS \
+	--edit-key \$keyid"
 ## Export revocation cert to file
-$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output "$master_revoke" --gen-revoke $keyid
+eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$master_revoke\" --gen-revoke \$keyid"
 ## Export key
-$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output "$master_secret" --export-secret-key $keyid
+eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$master_secret\" --export-secret-key \$keyid"
 ## Export master public key to file
-$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output "$master_public" --export $keyid
+eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$master_public\" --export \$keyid"
 ## Export subkeys
-$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output "$sub_secret" --export-secret-subkeys
+eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$sub_secret\" --export-secret-subkeys"
 ## Reimport master public and secret subkeys to main keyring
 $GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import "$master_public" "$sub_secret"
 rm -f "$master_public" "$sub_secret"
