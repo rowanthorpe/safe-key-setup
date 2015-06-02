@@ -107,15 +107,19 @@ while $# -gt 0; do
 	case "$1" in
 	--source)
 		cat "$thisscript"
-		exit 0;;
+		exit 0
+                ;;
 	--)
 		shift
-		break;;
+		break
+                ;;
 	-*)
 		printf "Unknown commandline flag. Aborting.\n" >&2
-		exit(1);;
+		exit 1
+                ;;
 	*)
-		break;;
+		break
+                ;;
 	esac
 done
 
