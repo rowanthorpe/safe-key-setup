@@ -313,8 +313,7 @@ if test -n "$oldkeys"; then
 	eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --delete-key \$keyid"
 fi
 ## Set password
-$HIDDEN_PRINTF 'passwd%s%s%ssave%s' "$eol" "$pass" "$eol" "$eol" | eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS \
-	--edit-key \$keyid"
+eval "$HIDDEN_PRINTF 'passwd%s%s%ssave%s' \"\$eol\" \"\$pass\" \"\$eol\" \"\$eol\" | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --edit-key \$keyid"
 ## Export revocation cert to file
 eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$master_revoke\" --gen-revoke \$keyid"
 ## Export key
@@ -324,7 +323,7 @@ eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$master_public\" --ex
 ## Export subkeys
 eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$sub_secret\" --export-secret-subkeys"
 ## Reimport master public and secret subkeys to main keyring
-$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import "$master_public" "$sub_secret"
+eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import \"\$master_public\" \"\$sub_secret\""
 rm -f "$master_public" "$sub_secret"
 
 printf "Your master public key and secret subkeys are installed in your keyring, and the master secret key and \
