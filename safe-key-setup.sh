@@ -9,7 +9,7 @@
 # the main keyring (so it can be kept separate from the public master and subkeys, for use only
 # when necessary).
 ####
-# © Copyright 2013 Rowan Thorpe
+# © Copyright 2013-2017 Rowan Thorpe
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU Affero General Public License as published by
@@ -101,6 +101,12 @@
 #
 # * Perhaps automate updating trustdb (configurably), after all other actions are done.
 
+die() {
+    printf 'ERROR: ' >&2
+    printf "$@" >&2
+    exit 1
+}
+
 # Getopts
 thisscript="$(readlink -e "$0")"
 while test $# -gt 0; do
@@ -114,8 +120,7 @@ while test $# -gt 0; do
 		break
                 ;;
 	-*)
-		printf "Unknown commandline flag. Aborting.\n" >&2
-		exit 1
+		die 'Unknown commandline flag.%s' "$eol"
                 ;;
 	*)
 		break
@@ -124,22 +129,19 @@ while test $# -gt 0; do
 done
 
 ## This is a perverse hack to lock the whole script into non-swappable memory
-printf -- '%s\n' "$thisscript" >/dev/shm/temp-memlock-$$.cfg
+printf -- '%s%s' "$thisscript" "$eol" >/dev/shm/temp-memlock-$$.cfg
 sudo /usr/sbin/memlockd -c /dev/shm/temp-memlock-$$.cfg -u memlockd -f -d >/dev/null 2>&1 &
 mlockpid=$!
+sleep 1
+ps $mlockpid >/dev/null || die 'Couldn'\''t lock myself with memlockd.%s' "$eol"
 
 ## Don't create anything readable by other users (except root...)
 umask 077
 
 ## Presets. Overridable by env vars...
-if test -z "$GPGINVOKE"; then
-	if command -v gpg2 >/dev/null 2>&1; then
-		GPGINVOKE='LC_ALL= LC_MESSAGES=C gpg2'
-	else
-		GPGINVOKE='LC_ALL= LC_MESSAGES=C gpg'
-	fi
-fi
-HOME="${HOME:-$(cd && pwd)}"
+GPGINVOKE="${GPGINVOKE:-LC_ALL= LC_MESSAGES=C $(command -v gpg2)}" || die 'Can'\''t find gpg2 command.%s' "$eol"
+HOME="${HOME:-$(cd && pwd)}" || die 'Couldn'\''t find $HOME.%s' "$eol"
+HIDDEN_PRINTF="${HIDDEN_PRINTF:-$(PATH= command -v printf)}" # output is sanity-tested below
 GNUPGHOME="${GNUPGHOME:-${HOME}/.gnupg}"
 GNUPGCONF="${GNUPGCONF:-${GNUPGHOME}/gpg.conf}"
 GNUPGPUBKEYRING="${GNUPGPUBKEYRING:-${GNUPGHOME}/pubring.gpg}"
@@ -153,10 +155,15 @@ if test -z "$SAFEKEY_WORKDIR"; then
 fi
 SAFEKEY_KEYRING_SETTINGS="${SAFEKEY_KEYRING_SETTINGS:---options $GNUPGCONF --armor --expert --batch --command-fd 0}"
 SAFEKEY_MAINKEYRING_SETTINGS="${SAFEKEY_MAINKEYRING_SETTINGS:-$SAFEKEY_KEYRING_SETTINGS --homedir $GNUPGHOME}"
-HIDDEN_PRINTF="${HIDDEN_PRINTF:-$(PATH= command -v printf)}" 2>/dev/null
 eol="
 "
 ## End of presets
+
+timenow="$(date +%Y%m%d%H%M%S)"
+
+## Backup existing gpg directory if it exists
+mkdir "${HOME}/.gnupg/" 2>/dev/null || \
+	tar -czf "${HOME}/gnupg-backup-${timenow}.tar.gz" -C "$HOME" .gnupg
 
 ## Check some settings are sane, secure and functional first...
 errmsg=
@@ -172,23 +179,29 @@ if printf 'Y' | read -n 1 temp >/dev/null 2>/dev/null; then
 else
 	read_n1_flag=""
 fi
-if ! { stty -echo && stty echo; } >/dev/null 2>&1; then
+{ stty -echo && stty echo; } >/dev/null 2>&1|| \
 	errmsg="${errmsg}+ stty doesn't seem to work as needed (to not display
 password). If you continue be *sure* no-one is watching over your shoulder,
 and even then it is still not advised!$eol"
-fi
-if ! grep -q '^personal-digest-preferences[ \t].*\<SHA512\>' "$GNUPGCONF"; then
+grep -q '^personal-digest-preferences[ '"$(printf '\t')"']\+SHA512[ '"$(printf '\t')"']*$' "$GNUPGCONF" || \
 	errmsg="${errmsg}+ Your personal-digest-preferences appear not to contain SHA512.$eol"
-fi
-if ! grep -q '^cert-digest-algo[ \t].*\<SHA512\>' "$GNUPGCONF"; then
+grep -q '^cert-digest-algo[ '"$(printf '\t')"']\+SHA512[ '"$(printf '\t')"']*$' "$GNUPGCONF" || \
 	errmsg="${errmsg}+ Your cert-digest-algo does not appear to be SHA512.$eol"
-fi
 gpgconf_def_pref="\
-$(sed -ne '/^default-preference-list[ \t]/ { :loop; /\\$/ { N; s/\\\n//; b loop }; p }' "$GNUPGCONF")"
+$(sed -n \
+	-e '/^default-preference-list[ \t]/! b' \
+	-e ':loop' \
+	-e '/\\$/! n last' \
+	-e 'N' \
+	-e 's/\\\r\?\n//' \
+	-e 'b loop' \
+	-e ': last' \
+	-e 'p' \
+	-e 'q' \
+"$GNUPGCONF")"
 for x in SHA512 SHA384 SHA256 SHA224 AES256 AES192 AES CAST5 ZLIB BZIP2 ZIP Uncompressed; do
-	if ! printf "$gpgconf_def_pref" | grep -q "^default-preference-list[ \t].*\<${x}\>"; then
+	printf "$gpgconf_def_pref" | grep -q '^default-preference-list[ '"$(printf '\t')"'].*\<'"$x"'\>' || \
 		errmsg="${errmsg}+ Your default-preference-list appears not to contain \"${x}\".$eol"
-	fi
 done
 if test -n "$errmsg"; then
 	cat >&2 <<EOM
@@ -197,7 +210,7 @@ $errmsg
 If you know what you are doing and wish to continue anyway, please enter "y".
 Anything else aborts.
 EOM
-	read $read_n1_flag reply; test "y" = "$reply" || test "Y" = "$reply" || exit 1
+	read $read_n1_flag reply; test "y" = "$reply" || test "Y" = "$reply" || die 'Bailing out on request.%s' "$eol"
 fi
 
 ## Get user info
@@ -217,11 +230,13 @@ while test -z "$expiredate"; do
 	printf 'Enter an expiry date in ISO format YYYY-MM-DD (at most five years from now is advised):%s' "$eol" >&2
 	read expiredate
 done
-imagefile="##################"
-while test -n "$imagefile" && ! test -s "$imagefile"; do
-	printf 'Enter (absolute path) filename for a small image file to include in the key%s(optional, file must exist '\
+imagefile=
+while ! test -s "$imagefile"; do
+	printf 'Enter filename for a small image file to include in the key%s(optional, file must exist '\
 'and be non-empty):%s' "$eol" "$eol" >&2
 	read imagefile
+	test -n "$imagefile" || break
+	imagefile="$(readlink -n -e "$imagefile")" || die 'Image file doesn'\''t exist.%s' "$eof"
 done
 printf 'Enter a space-separated list of the extra email addresses you wish to create uids for (optional):%s' "$eol" >&2
 read otheremailaddresses
@@ -229,9 +244,7 @@ printf 'Enter space-separated key IDs which you would like to sign the new key w
 read oldkeys
 printf 'Enter how many signing subkeys you want created (optional):%s' "$eol" >&2
 read numsignkeys
-if test -z "$numsignkeys"; then
-	numsignkeys=0
-fi
+test -n "$numsignkeys" || numsignkeys=0
 pass=
 passcheck="##################"
 while ! test "$pass" = "$passcheck"; do
@@ -242,13 +255,20 @@ while ! test "$pass" = "$passcheck"; do
 	printf 'Please re-enter the passphrase (not echoed):%s' "$eol" >&2
 	stty -echo >/dev/null 2>&1; read passcheck; stty echo >/dev/null 2>&1
 done
+subpass=
+passcheck="##################"
+while ! test "$subpass" = "$passcheck"; do
+	while test -z "$subpass"; do
+		printf 'Enter a passphrase for the subkeys (not echoed):%s' "$eol" >&2
+		stty -echo >/dev/null 2>&1; read subpass; stty echo >/dev/null 2>&1
+	done
+	printf 'Please re-enter the passphrase for the subkeys (not echoed):%s' "$eol" >&2
+	stty -echo >/dev/null 2>&1; read passcheck; stty echo >/dev/null 2>&1
+done
 
 ## Create temp stuff
-tempgpgdir="$(mktemp --tmpdir="$SAFEKEY_WORKDIR" --directory)" || {
-	printf "Couldn't create temporary directory.%s" "$eol" >&2
-	exit 1
-}
-trap 'rm -Rf "$tempgpgdir" 2>/dev/null' EXIT
+tempgpgdir="$(mktemp --tmpdir="$SAFEKEY_WORKDIR" --directory)" || die 'Couldn'\''t create temporary directory.%s' "$eol"
+trap 'test -z "$tempgpgdir" || rm -Rf "$tempgpgdir" 2>/dev/null' EXIT
 SAFEKEY_TEMPKEYRING_SETTINGS="${SAFEKEY_TEMPKEYRING_SETTINGS:-$SAFEKEY_KEYRING_SETTINGS --homedir $tempgpgdir \
 	--no-default-keyring --keyring ${tempgpgdir}/pubring.gpg --secret-keyring ${tempgpgdir}/secring.gpg}"
 
@@ -264,9 +284,9 @@ Subkey-Usage: encrypt
 Name-Real: \$fullname
 Name-Email: \$primaryemailaddress
 Expire-Date: \$expiredate
+Passphrase: \$subpass
 %pubring \${tempgpgdir}/pubring.gpg
 %secring \${tempgpgdir}/secring.gpg
-%no-protection
 %commit
 %echo Finished generating key.
 EOM
@@ -274,7 +294,11 @@ EOM
 
 ## Get master key ID
 eval "keyid=\"\$($GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --list-keys --with-colons | \
-sed -ne '/^pub:/ { s/^pub:[^:]*:[^:]*:[^:]*:\([^:]\+\):.*$/\1/; p }')\""
+	sed -n \
+		-e '/^pub:/! b' \
+		-e 's/^pub:[^:]*:[^:]*:[^:]*:\([^:]\+\):.*$/\1/' \
+		-e 'p'
+)\""
 
 ## Generate extra UIDs, signing subkeys, import image, etc
 {
@@ -282,7 +306,7 @@ sed -ne '/^pub:/ { s/^pub:[^:]*:[^:]*:[^:]*:\([^:]\+\):.*$/\1/; p }')\""
 	for addr in $otheremailaddresses; do
 		printf 'adduid%s%s%s%s%s%s' "$eol" "$fullname" "$eol" "$addr" "$eol" "$eol" "$eol"
 	done
-	for num in `seq $numsignkeys`; do
+	for num in $(seq $numsignkeys); do
 		printf 'addkey%s8%se%sq%s4096%s1y%s' "$eol" "$eol" "$eol" "$eol" "$eol" "$eol"
 	done
 	if test -n "$imagefile"; then
@@ -292,43 +316,54 @@ sed -ne '/^pub:/ { s/^pub:[^:]*:[^:]*:[^:]*:\([^:]\+\):.*$/\1/; p }')\""
 	printf 'save%s' "$eol"
 } | eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --edit-key \$keyid"
 
-timenow=`date +%Y%m%d%H%M%S`
-master_revoke="${HOME}/master-key-revoke-${timenow}.asc"
-master_secret="${HOME}/master-secret-key-${timenow}.asc"
+master_revoke="${SAFEKEY_WORKDIR}/master-key-revoke-${timenow}.asc"
+master_secret="${SAFEKEY_WORKDIR}/master-secret-key-${timenow}.asc"
 master_public="${SAFEKEY_WORKDIR}/master-public-key-${timenow}.asc"
 sub_secret="${SAFEKEY_WORKDIR}/secret-subkeys-${timenow}.asc"
+keys_tarball="${HOME}/gpg-keys-${timenow}.tar.gz"
 
+#TODO: do this when all ok
 ## If any keys were specified for signing the new key with...
-if test -n "$oldkeys"; then
-	# Pipe-export master public key | import to main keyring (don't save as file)
-	eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --export \$keyid | $GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import"
-	# Sign it on main keyring, with requested IDs
-	for signame in $oldkeys; do
-		printf 'tnrsign%s2%s10%s%ssave%s' "$eol" "$eol" "$eol" "$eol" "$eol" | \
-			eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --local-user \"\$signame\" --edit-key \$keyid"
-	done
-	# Pipe-export master public key | import to temp keyring (don't save as file)
-	eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --export \$keyid | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --import"
-	# Delete master public key from main keyring
-	eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --delete-key \$keyid"
-fi
+#if test -n "$oldkeys"; then
+#	# Pipe-export master public key | import to main keyring (don't save as file)
+#	eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --export \$keyid | $GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import"
+#	# Sign it on main keyring, with requested IDs
+#	for signame in $oldkeys; do
+#		printf 'tnrsign%s2%s10%s%ssave%s' "$eol" "$eol" "$eol" "$eol" "$eol" | \
+#			eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --local-user \"\$signame\" --edit-key \$keyid"
+#	done
+#	# Pipe-export master public key | import to temp keyring (don't save as file)
+#	eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --export \$keyid | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --import"
+#	# Delete master public key from main keyring
+#	eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --delete-key \$keyid"
+#fi
+
 ## Set password
-eval "$HIDDEN_PRINTF 'passwd%s%s%ssave%s' \"\$eol\" \"\$pass\" \"\$eol\" \"\$eol\" | $GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --edit-key \$keyid"
+eval "$HIDDEN_PRINTF 'passwd%s%s%ssave%s' \"\$eol\" \"\$pass\" \"\$eol\" \"\$eol\" | \
+	$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --edit-key \$keyid"
 ## Export revocation cert to file
 eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$master_revoke\" --gen-revoke \$keyid"
-## Export key
+## Export master secret key to file
 eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$master_secret\" --export-secret-key \$keyid"
 ## Export master public key to file
 eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$master_public\" --export \$keyid"
-## Export subkeys
+## Export secret subkeys to file
 eval "$GPGINVOKE $SAFEKEY_TEMPKEYRING_SETTINGS --output \"\$sub_secret\" --export-secret-subkeys"
-## Reimport master public and secret subkeys to main keyring
-eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import \"\$master_public\" \"\$sub_secret\""
-rm -f "$master_public" "$sub_secret"
 
-printf "Your master public key and secret subkeys are installed in your keyring, and the master secret key and \
-revocation certificate are saved as \"%s\" and \"%s\". Store them somewhere safe, and *don't lose them, or the \
-passphrase*.%s" "$master_secret" "$master_revoke" "$eol$eol" >&2
+#TODO: when all is good do this too...
+## Import master public and secret subkeys to main keyring
+#eval "$GPGINVOKE $SAFEKEY_MAINKEYRING_SETTINGS --import \"\$master_public\" \"\$sub_secret\""
+
+## Archive the new keys
+tar -czf "$keys_tarball" "$master_secret" "$master_public" "$sub_secret" "$master_revoke"
+
+printf "\
+Your master public key and secret subkeys are installed in your keyring, and the secret & public master \
+keys, secret sub-keys, and revocation certificate are saved as \"%s\", \"%s\", \"%s\", and \"%s\". Store \
+them somewhere safe, and *don't lose them or the passphrase*. Once you are sure it looks in working order \
+send it to the keyserver with:
+gpg --keyserver pool.sks-keyservers.net --send-key '%s'%s" \
+	"$master_secret" "$master_public" "$sub_secret" "$master_revoke" "$keyid" "$eol$eol" >&2
 
 sudo kill $mlockpid
 ## When this exits the tempdir/keyring will be auto-deleted by the trapped EXIT command
