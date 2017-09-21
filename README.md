@@ -1,6 +1,16 @@
 BIG FAT WARNING
 ===============
 
+    NB: As my time to work on this dropped to nearly zero, I ended up with a
+    lot of extensive changes sitting in a private branch, waiting for me to
+    find time to idiot-check them before merging to "master". As that is
+    unlikely to happen soon I have pushed those changes as a WIP commit to a
+    "devel" branch (that *will* be rebased along the way). As it is so far
+    beyond the "master" branch now, I recommend looking there if you are just
+    reading the code for pointers, tricks, curiosity, etc. It is a moving
+    target though, so is not as heavily tested as "master", so don't expect it
+    to run reliably, or at all.
+
 This is a thrown together prototype at the moment. A test run did *for me* do
 all the things it promises to do, but due to the highly risky nature of what
 this does I will still stubbornly consider it ALPHA until many of my peers have
